@@ -32,6 +32,9 @@ module.exports = {
       file: path.join(__dirname, 'dist', 'index.html'),
       template: path.join(__dirname, 'public', 'index.html')
     }),
-    new MiniCssExtractPlugin()
+    new MiniCssExtractPlugin(),
+    new CopyPlugin({
+      patterns: [{ from: 'src/assets', to: 'assets' }]
+    })
   ]
 }

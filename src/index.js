@@ -1,4 +1,5 @@
-import { Application, Container, Graphics } from 'pixi.js'
+import { WebfontLoaderPlugin } from 'pixi-webfont-loader'
+import { Application, Container, Graphics, Loader, Sprite, Text, TextStyle, Texture } from 'pixi.js'
 
 import { getRandomNubmer } from './helpers'
 import './styles/styles.css'
@@ -24,18 +25,20 @@ class Gameplay {
   }
 
   start() {
-    // Creating container for the circles
-    const circlesContainer = this.createContainer()
-    this.app.stage.addChild(circlesContainer)
+    // Load fonts
+    Loader.registerPlugin(WebfontLoaderPlugin)
+    Loader.shared.add({
+      name: 'Candal',
+      url: 'https://fonts.googleapis.com/css2?family=Candal&display=swap'
+    })
 
-    // Creating circles each 500ms
-    this.circleInterval = setInterval(() => {
-      const circle = this.createCircle()
-      // Push each new circle to the state
-      this.items.push(circle)
-      // Append circle item itself
-      circlesContainer.addChild(circle.graphics)
-    }, 500)
+    Loader.shared.onComplete.once(() => {
+      // Create game parts
+      this.createGameplay()
+      this.createStatusbar()
+    })
+
+    Loader.shared.load()
 
     this.app.ticker.add(delta => {
       this.items.forEach(({ id, active, graphics, weight }) => {
@@ -55,6 +58,53 @@ class Gameplay {
     this.app.stage.addChild(container)
 
     return container
+  }
+
+  createStatusbar() {
+    // Create container for status bar
+    const statusbarContainer = this.createContainer()
+    this.app.stage.addChild(statusbarContainer)
+
+    // Create bg
+    const graphics = new Graphics()
+    graphics.beginFill(0x002a2c)
+    graphics.drawRect(0, 0, this.scene.clientWidth, 50)
+    graphics.endFill()
+
+    // Create lives text
+    const text = new Text(
+      `Lives: ${this.lives}`,
+      new TextStyle({
+        fontFamily: 'Candal',
+        fontSize: 26,
+        fontWeight: 'bold',
+        fill: '#008e94',
+        stroke: '#002526',
+        strokeThickness: 1,
+        lineJoin: 'round'
+      })
+    )
+    text.x = 25
+    text.y = 25 - text.height / 2
+
+    // Add all to the container
+    statusbarContainer.addChild(graphics)
+    statusbarContainer.addChild(text)
+  }
+
+  createGameplay() {
+    // Creating container for the circles
+    const circlesContainer = this.createContainer()
+    this.app.stage.addChild(circlesContainer)
+
+    // Creating circles each 500ms
+    this.circleInterval = setInterval(() => {
+      const circle = this.createCircle()
+      // Push each new circle to the state
+      this.items.push(circle)
+      // Append circle item itself
+      circlesContainer.addChild(circle.graphics)
+    }, 1000)
   }
 
   createCircle() {
@@ -113,7 +163,8 @@ class Gameplay {
 const scene = document.querySelector('#scene')
 const params = {
   width: scene?.clientWidth,
-  height: scene?.clientHeight
+  height: scene?.clientHeight,
+  backgroundColor: 0x008e94
 }
 // Create the app instance
 const app = new Gameplay(scene, params)
