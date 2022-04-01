@@ -1,7 +1,7 @@
 import { WebfontLoaderPlugin } from 'pixi-webfont-loader'
 import { Application, Container, Graphics, Loader, Text, TextStyle } from 'pixi.js'
 
-import { getRandomNubmer } from './helpers'
+import { getRandomNubmer, getRnadomColor } from './helpers'
 import './styles/styles.css'
 
 class Gameplay {
@@ -286,9 +286,12 @@ class Gameplay {
     const xPos = getRandomNubmer(radius / 2, this.scene.clientWidth - radius / 2)
     // Get vertical position above viewport
     const yPos = -radius
+    // Circle color
+    const color = getRnadomColor()
+    console.log(color)
     // Create cricle element
     const graphics = new Graphics()
-    graphics.beginFill(0xffffff)
+    graphics.beginFill(color)
     graphics.drawCircle(0, 0, radius)
     graphics.position.set(xPos, yPos)
     graphics.interactive = true
