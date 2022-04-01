@@ -288,7 +288,6 @@ class Gameplay {
     const yPos = -radius
     // Circle color
     const color = getRnadomColor()
-    console.log(color)
     // Create cricle element
     const graphics = new Graphics()
     graphics.beginFill(color)
