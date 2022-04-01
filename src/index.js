@@ -5,19 +5,19 @@ import { getRandomNubmer } from './helpers'
 import './styles/styles.css'
 
 class Gameplay {
-  app
+  app // PIXI app
 
-  scene
+  scene // Scene where the game is
 
-  livesAmount
+  livesAmount // PIXI text object with lives count. By default 3 lives
 
-  score = 0
+  score = 0 // User score during the game
 
-  pause = false
+  pause = false // Is app paused or not
 
-  items = []
+  items = [] // All active elements
 
-  circleInterval
+  circleInterval // Interval that creates circles
 
   constructor(scene, params) {
     this.app = new Application(params)
@@ -46,7 +46,7 @@ class Gameplay {
               if (graphics.y > this.scene.clientHeight + graphics.height) {
                 // Remove if the circle below the screen and remove one live
                 this.disableCircle(id)
-                this.livesAmount.text = Number(this.livesAmount.text) - 1
+                this.livesAmount.text = Number(this.livesAmount.text) <= 0 ? 0 : Number(this.livesAmount.text) - 1
               } else {
                 // Move the circle to the bottom
                 graphics.y += weight + delta
@@ -77,6 +77,8 @@ class Gameplay {
     this.items.forEach(({ id }) => {
       this.removeCircle(id)
     })
+
+    this.createEndMenu()
   }
 
   loadFonts(callbak) {
@@ -119,20 +121,21 @@ class Gameplay {
     this.livesAmount.y = 25 - this.livesAmount.height / 2
 
     // Create pause button
-    const pauseBtn = this.createBrandBtn('Pause')
+    const { btn: pauseBtn, changeText } = this.createBrandBtn('Pause')
     pauseBtn.x = this.scene.clientWidth - pauseBtn.width - 25
     pauseBtn.y = 25 - pauseBtn.height / 2
-    pauseBtn.on('pointerdown', () => {
+    const pauseClick = () => {
       if (this.pause) {
-        pauseBtn.text = 'Pause'
+        changeText('Pause')
         pauseBtn.x = this.scene.clientWidth - pauseBtn.width - 25
         this.pause = false
       } else {
-        pauseBtn.text = 'Resume'
+        changeText('Resume')
         pauseBtn.x = this.scene.clientWidth - pauseBtn.width - 25
         this.pause = true
       }
-    })
+    }
+    pauseBtn.on('mousedown', pauseClick).on('touchstart', pauseClick)
 
     // Add all to the container
     statusbarContainer.addChild(graphics)
@@ -156,6 +159,50 @@ class Gameplay {
     }, 1000)
   }
 
+  createEndMenu() {
+    // Create container for status bar
+    const menuContainer = this.createContainer()
+    this.app.stage.addChild(menuContainer)
+
+    // Create bg
+    const graphicsBg = new Graphics()
+    graphicsBg.beginFill(0x000000, 0.01)
+    graphicsBg.drawRect(0, 0, this.scene.clientWidth, this.scene.clientHeight)
+    graphicsBg.endFill()
+    graphicsBg.interactive = true
+    menuContainer.addChild(graphicsBg)
+
+    // Create menu
+    const graphicsMenu = new Graphics()
+    graphicsBg.beginFill(0x001011, 1)
+    graphicsBg.drawRoundedRect(graphicsBg.width / 2 - 150, graphicsBg.height / 2 - 125, 300, 250, 20)
+    graphicsBg.endFill()
+    menuContainer.addChild(graphicsMenu)
+
+    const overText = this.createBrandText('Game Over', { fill: '#ffffff', fontSize: 42 })
+    overText.x = menuContainer.width / 2 - overText.width / 2
+    overText.y = graphicsBg.height / 2 - 100
+    menuContainer.addChild(overText)
+
+    const scoreText = this.createBrandText(`Your Score: ${this.score}`, { fill: '#008E94', strokeThickness: 0 })
+    scoreText.x = menuContainer.width / 2 - scoreText.width / 2
+    scoreText.y = graphicsBg.height / 2 - 25
+    menuContainer.addChild(scoreText)
+
+    const { btn: againBtn } = this.createBrandBtn(
+      'Try Again',
+      { color: '#001011', fontSize: 26 },
+      { width: 180, color: 0xffffff, radius: 10 }
+    )
+    againBtn.x = menuContainer.width / 2 - againBtn.width / 2
+    againBtn.y = graphicsBg.height / 2 + 40
+    const againClick = () => {
+      window.location.reload()
+    }
+    againBtn.on('mousedown', againClick).on('touchstart', againClick)
+    menuContainer.addChild(againBtn)
+  }
+
   createBrandText(text, styles = {}) {
     const baseTextStyles = new TextStyle({
       fontFamily: 'Candal',
@@ -164,7 +211,6 @@ class Gameplay {
       fill: '#008e94',
       stroke: '#002526',
       strokeThickness: 1,
-      lineJoin: 'round',
       ...styles
     })
 
@@ -173,24 +219,39 @@ class Gameplay {
     return baseText
   }
 
-  createBrandBtn(text, styles = {}) {
+  createBrandBtn(text, textStyles = {}, btnStyles = {}) {
     const baseBtnStyles = new TextStyle({
       fontFamily: 'Candal',
-      fontSize: 18,
-      fontWeight: 'bold',
-      fill: '#008e94',
-      stroke: '#002526',
-      strokeThickness: 1,
-      lineJoin: 'round',
-      ...styles
+      fontSize: 16,
+      fontWeight: 'normal',
+      fill: '#008E94',
+      ...textStyles
     })
 
-    const baseBtn = new Text(text, baseBtnStyles)
+    // Create text for button
+    const textBtn = new Text(text, baseBtnStyles)
+    textBtn.anchor.set(0.5)
+    textBtn.x = btnStyles?.width ? btnStyles.width / 2 : 50
+    textBtn.y = (textBtn.height + 10) / 2
 
-    baseBtn.interactive = true
-    baseBtn.buttonMode = true
+    // Create button
+    const graphicsBtn = new Graphics()
+    graphicsBtn.beginFill(btnStyles?.color || 0x001011)
+    graphicsBtn.drawRoundedRect(0, 0, btnStyles?.width || 100, textBtn.height + 10, btnStyles?.radius || 6)
+    graphicsBtn.endFill()
+    graphicsBtn.height = textBtn.height + 10
+    graphicsBtn.interactive = true
+    graphicsBtn.buttonMode = true
 
-    return baseBtn
+    // Add text to graphics
+    graphicsBtn.addChild(textBtn)
+
+    // Function to change the button text
+    const changeText = newText => {
+      textBtn.text = newText
+    }
+
+    return { btn: graphicsBtn, changeText }
   }
 
   createCircle() {
