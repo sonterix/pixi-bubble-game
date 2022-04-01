@@ -1,5 +1,6 @@
 import { WebfontLoaderPlugin } from 'pixi-webfont-loader'
 import { Application, Container, Graphics, Loader, Text, TextStyle } from 'pixi.js'
+import { DropShadowFilter } from '@pixi/filter-drop-shadow'
 
 import { getRandomNubmer, getRnadomColor } from './helpers'
 import './styles/styles.css'
@@ -15,15 +16,17 @@ class Gameplay {
 
   pause = false // Is app paused or not
 
-  gameTime = 0
+  gameOver = false // Is game over or not
+
+  gameTime // PIXI text object with game time
 
   items = [] // All active elements
 
   circleInterval // Interval that creates circles
 
   circleParams = {
-    weight: [0, 3],
-    radius: [50, 70]
+    weight: [0, 3], // Affects on fall speed
+    radius: [50, 70] // Affect on circle size
   }
 
   constructor(scene, params) {
@@ -39,33 +42,22 @@ class Gameplay {
       this.createGameplay()
       this.createStatusbar()
 
-      // Difficulty change
-      setInterval(() => {
-        if (!this.pause && this.circleInterval) {
-          this.gameTime += 1
-
-          if (this.gameTime % 10 === 0) {
-            this.circleParams = {
-              weight: this.circleParams.weight.map(number => number + 1),
-              radius: this.circleParams.radius.map(number => (number !== 5 ? number - 5 : number))
-            }
-          }
-        }
-      }, 1000)
+      // Difficult control
+      this.progressioDifficultn()
 
       // Works like FPS
       this.app.ticker.add(delta => {
         // End game if no more lives
-        if (Number(this.livesAmount?.text) <= 0) {
+        if (Number(this.livesAmount?.text) <= 0 && !this.gameOver) {
           this.end()
         }
 
-        // Items work
+        // Items render if the game is not paused
         if (!this.pause) {
           this.items.forEach(({ id, active, graphics, weight }) => {
             if (active) {
+              // Remove if the circle below the screen and remove one live
               if (graphics.y > this.scene.clientHeight + graphics.height) {
-                // Remove if the circle below the screen and remove one live
                 this.disableCircle(id)
                 this.livesAmount.text = Number(this.livesAmount.text) <= 0 ? 0 : Number(this.livesAmount.text) - 1
               } else {
@@ -93,10 +85,11 @@ class Gameplay {
   end() {
     // Stop rendering new circles
     clearInterval(this.circleInterval)
+    this.gameOver = true
 
     // Remove all circles
     this.items.forEach(({ id }) => {
-      this.removeCircle(id)
+      this.disableCircle(id)
     })
 
     this.createEndMenu()
@@ -111,6 +104,21 @@ class Gameplay {
     })
     Loader.shared.onComplete.once(callbak)
     Loader.shared.load()
+  }
+
+  progressioDifficultn() {
+    setInterval(() => {
+      if (!this.pause && !this.gameOver) {
+        this.gameTime.text = Number(this.gameTime.text) + 1
+
+        if (Number(this.gameTime.text) % 10 === 0) {
+          this.circleParams = {
+            weight: this.circleParams.weight.map(number => number + 1),
+            radius: this.circleParams.radius.map(number => (number !== 5 ? number - 5 : number))
+          }
+        }
+      }
+    }, 1000)
   }
 
   createContainer() {
@@ -130,21 +138,53 @@ class Gameplay {
     graphics.beginFill(0x002a2c)
     graphics.drawRect(0, 0, this.scene.clientWidth, 50)
     graphics.endFill()
+    statusbarContainer.addChild(graphics)
 
-    // Create static text
+    // Create lives text
     const livesText = this.createBrandText('Lives:')
     livesText.x = 25
     livesText.y = 25 - livesText.height / 2
-
-    // Create interactive lives counter
+    statusbarContainer.addChild(livesText)
+    // Add dynamic lives number
     this.livesAmount = this.createBrandText('3')
-    this.livesAmount.x = 35 + livesText.width
+    this.livesAmount.x = livesText.x + livesText.width + 10
     this.livesAmount.y = 25 - this.livesAmount.height / 2
+    this.livesAmount.filters = [
+      new DropShadowFilter({
+        color: 0x001011,
+        blur: 1,
+        distance: 0,
+        rotation: 45,
+        alpha: 0.8
+      })
+    ]
+    statusbarContainer.addChild(this.livesAmount)
+
+    // Create time text
+    const timeText = this.createBrandText('Game Time:')
+    timeText.x = this.livesAmount.x + this.livesAmount.width + 40
+    timeText.y = 25 - timeText.height / 2
+    statusbarContainer.addChild(timeText)
+    // Add dynamic time number
+    this.gameTime = this.createBrandText('0')
+    this.gameTime.x = timeText.x + timeText.width + 10
+    this.gameTime.y = 25 - this.gameTime.height / 2
+    this.gameTime.filters = [
+      new DropShadowFilter({
+        color: 0x001011,
+        blur: 1,
+        distance: 0,
+        rotation: 45,
+        alpha: 0.8
+      })
+    ]
+    statusbarContainer.addChild(this.gameTime)
 
     // Create pause button
     const { btn: pauseBtn, changeText } = this.createBrandBtn('Pause')
     pauseBtn.x = this.scene.clientWidth - pauseBtn.width - 25
     pauseBtn.y = 25 - pauseBtn.height / 2
+
     const pauseClick = () => {
       if (this.pause) {
         changeText('Pause')
@@ -157,11 +197,6 @@ class Gameplay {
       }
     }
     pauseBtn.on('mousedown', pauseClick).on('touchstart', pauseClick)
-
-    // Add all to the container
-    statusbarContainer.addChild(graphics)
-    statusbarContainer.addChild(livesText)
-    statusbarContainer.addChild(this.livesAmount)
     statusbarContainer.addChild(pauseBtn)
   }
 
@@ -187,7 +222,7 @@ class Gameplay {
 
     // Create bg
     const graphicsBg = new Graphics()
-    graphicsBg.beginFill(0x000000, 0.01)
+    graphicsBg.beginFill(0x000000, 0.6)
     graphicsBg.drawRect(0, 0, this.scene.clientWidth, this.scene.clientHeight)
     graphicsBg.endFill()
     graphicsBg.interactive = true
@@ -198,6 +233,15 @@ class Gameplay {
     graphicsBg.beginFill(0x001011, 1)
     graphicsBg.drawRoundedRect(graphicsBg.width / 2 - 150, graphicsBg.height / 2 - 125, 300, 250, 20)
     graphicsBg.endFill()
+    graphicsBg.filters = [
+      new DropShadowFilter({
+        color: 0x000000,
+        distance: 5,
+        blur: 0.2,
+        rotation: 90,
+        alpha: 0.2
+      })
+    ]
     menuContainer.addChild(graphicsMenu)
 
     const overText = this.createBrandText('Game Over', { fill: '#ffffff', fontSize: 42 })
@@ -217,6 +261,7 @@ class Gameplay {
     )
     againBtn.x = menuContainer.width / 2 - againBtn.width / 2
     againBtn.y = graphicsBg.height / 2 + 40
+
     const againClick = () => {
       window.location.reload()
     }
@@ -296,6 +341,16 @@ class Gameplay {
     graphics.interactive = true
     graphics.buttonMode = true
     graphics.endFill()
+    graphics.filters = [
+      new DropShadowFilter({
+        color: 0x001011,
+        blur: 0.5,
+        distance: 5,
+        rotation: 45,
+        alpha: 0.1
+      })
+    ]
+
     // Create circle item
     const circle = { id, active, weight, graphics }
     // Handle remove circle on touch
