@@ -15,9 +15,16 @@ class Gameplay {
 
   pause = false // Is app paused or not
 
+  gameTime = 0
+
   items = [] // All active elements
 
   circleInterval // Interval that creates circles
+
+  circleParams = {
+    weight: [0, 3],
+    radius: [50, 70]
+  }
 
   constructor(scene, params) {
     this.app = new Application(params)
@@ -31,6 +38,20 @@ class Gameplay {
       // Create game parts
       this.createGameplay()
       this.createStatusbar()
+
+      // Difficulty change
+      setInterval(() => {
+        if (!this.pause && this.circleInterval) {
+          this.gameTime += 1
+
+          if (this.gameTime % 10 === 0) {
+            this.circleParams = {
+              weight: this.circleParams.weight.map(number => number + 1),
+              radius: this.circleParams.radius.map(number => (number !== 5 ? number - 5 : number))
+            }
+          }
+        }
+      }, 1000)
 
       // Works like FPS
       this.app.ticker.add(delta => {
@@ -184,7 +205,7 @@ class Gameplay {
     overText.y = graphicsBg.height / 2 - 100
     menuContainer.addChild(overText)
 
-    const scoreText = this.createBrandText(`Your Score: ${this.score}`, { fill: '#008E94', strokeThickness: 0 })
+    const scoreText = this.createBrandText(`Your Score: ${this.score}`, { fill: '#008e94', strokeThickness: 0 })
     scoreText.x = menuContainer.width / 2 - scoreText.width / 2
     scoreText.y = graphicsBg.height / 2 - 25
     menuContainer.addChild(scoreText)
@@ -258,9 +279,9 @@ class Gameplay {
     const id = getRandomNubmer(0, 9999999)
     const active = true
     // Set fall speed
-    const weight = getRandomNubmer(0, 5)
+    const weight = getRandomNubmer(this.circleParams.weight[0], this.circleParams.weight[1])
     // Get random circle radius
-    const radius = getRandomNubmer(20, 70)
+    const radius = getRandomNubmer(this.circleParams.radius[0], this.circleParams.radius[1])
     // Get random horizontal position
     const xPos = getRandomNubmer(radius / 2, this.scene.clientWidth - radius / 2)
     // Get vertical position above viewport
