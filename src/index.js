@@ -1,5 +1,5 @@
 import { WebfontLoaderPlugin } from 'pixi-webfont-loader'
-import { Application, Container, Graphics, Loader, Sprite, Text, TextStyle, Texture } from 'pixi.js'
+import { Application, Container, Graphics, Loader, Text, TextStyle } from 'pixi.js'
 
 import { getRandomNubmer } from './helpers'
 import './styles/styles.css'
@@ -9,13 +9,15 @@ class Gameplay {
 
   scene
 
-  circleInterval
-
-  lives = 3
+  livesAmount
 
   score = 0
 
+  pause = false
+
   items = []
+
+  circleInterval
 
   constructor(scene, params) {
     this.app = new Application(params)
@@ -25,33 +27,68 @@ class Gameplay {
   }
 
   start() {
+    this.loadFonts(() => {
+      // Create game parts
+      this.createGameplay()
+      this.createStatusbar()
+
+      // Works like FPS
+      this.app.ticker.add(delta => {
+        // End game if no more lives
+        if (Number(this.livesAmount?.text) <= 0) {
+          this.end()
+        }
+
+        // Items work
+        if (!this.pause) {
+          this.items.forEach(({ id, active, graphics, weight }) => {
+            if (active) {
+              if (graphics.y > this.scene.clientHeight + graphics.height) {
+                // Remove if the circle below the screen and remove one live
+                this.disableCircle(id)
+                this.livesAmount.text = Number(this.livesAmount.text) - 1
+              } else {
+                // Move the circle to the bottom
+                graphics.y += weight + delta
+              }
+            } else {
+              this.removeCircle(id)
+            }
+          })
+        }
+      })
+    })
+
+    // Pause the game if the browser tab is not active
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.app.ticker.stop()
+      } else {
+        this.app.ticker.start()
+      }
+    })
+  }
+
+  end() {
+    // Stop rendering new circles
+    clearInterval(this.circleInterval)
+
+    // Remove all circles
+    this.items.forEach(({ id }) => {
+      this.removeCircle(id)
+    })
+  }
+
+  loadFonts(callbak) {
     // Load fonts
     Loader.registerPlugin(WebfontLoaderPlugin)
     Loader.shared.add({
       name: 'Candal',
       url: 'https://fonts.googleapis.com/css2?family=Candal&display=swap'
     })
-
-    Loader.shared.onComplete.once(() => {
-      // Create game parts
-      this.createGameplay()
-      this.createStatusbar()
-    })
-
+    Loader.shared.onComplete.once(callbak)
     Loader.shared.load()
-
-    this.app.ticker.add(delta => {
-      this.items.forEach(({ id, active, graphics, weight }) => {
-        if (active) {
-          graphics.y += weight + delta
-        } else {
-          this.removeCircle(id)
-        }
-      })
-    })
   }
-
-  end() {}
 
   createContainer() {
     const container = new Container()
@@ -71,25 +108,37 @@ class Gameplay {
     graphics.drawRect(0, 0, this.scene.clientWidth, 50)
     graphics.endFill()
 
-    // Create lives text
-    const text = new Text(
-      `Lives: ${this.lives}`,
-      new TextStyle({
-        fontFamily: 'Candal',
-        fontSize: 26,
-        fontWeight: 'bold',
-        fill: '#008e94',
-        stroke: '#002526',
-        strokeThickness: 1,
-        lineJoin: 'round'
-      })
-    )
-    text.x = 25
-    text.y = 25 - text.height / 2
+    // Create static text
+    const livesText = this.createBrandText('Lives:')
+    livesText.x = 25
+    livesText.y = 25 - livesText.height / 2
+
+    // Create interactive lives counter
+    this.livesAmount = this.createBrandText('3')
+    this.livesAmount.x = 35 + livesText.width
+    this.livesAmount.y = 25 - this.livesAmount.height / 2
+
+    // Create pause button
+    const pauseBtn = this.createBrandBtn('Pause')
+    pauseBtn.x = this.scene.clientWidth - pauseBtn.width - 25
+    pauseBtn.y = 25 - pauseBtn.height / 2
+    pauseBtn.on('pointerdown', () => {
+      if (this.pause) {
+        pauseBtn.text = 'Pause'
+        pauseBtn.x = this.scene.clientWidth - pauseBtn.width - 25
+        this.pause = false
+      } else {
+        pauseBtn.text = 'Resume'
+        pauseBtn.x = this.scene.clientWidth - pauseBtn.width - 25
+        this.pause = true
+      }
+    })
 
     // Add all to the container
     statusbarContainer.addChild(graphics)
-    statusbarContainer.addChild(text)
+    statusbarContainer.addChild(livesText)
+    statusbarContainer.addChild(this.livesAmount)
+    statusbarContainer.addChild(pauseBtn)
   }
 
   createGameplay() {
@@ -105,6 +154,43 @@ class Gameplay {
       // Append circle item itself
       circlesContainer.addChild(circle.graphics)
     }, 1000)
+  }
+
+  createBrandText(text, styles = {}) {
+    const baseTextStyles = new TextStyle({
+      fontFamily: 'Candal',
+      fontSize: 26,
+      fontWeight: 'bold',
+      fill: '#008e94',
+      stroke: '#002526',
+      strokeThickness: 1,
+      lineJoin: 'round',
+      ...styles
+    })
+
+    const baseText = new Text(text, baseTextStyles)
+
+    return baseText
+  }
+
+  createBrandBtn(text, styles = {}) {
+    const baseBtnStyles = new TextStyle({
+      fontFamily: 'Candal',
+      fontSize: 18,
+      fontWeight: 'bold',
+      fill: '#008e94',
+      stroke: '#002526',
+      strokeThickness: 1,
+      lineJoin: 'round',
+      ...styles
+    })
+
+    const baseBtn = new Text(text, baseBtnStyles)
+
+    baseBtn.interactive = true
+    baseBtn.buttonMode = true
+
+    return baseBtn
   }
 
   createCircle() {
@@ -128,8 +214,14 @@ class Gameplay {
     graphics.endFill()
     // Create circle item
     const circle = { id, active, weight, graphics }
-    // Handle remove event on touch
-    graphics.on('mousedown', () => this.disableCircle(id)).on('touchstart', () => this.disableCircle(id))
+    // Handle remove circle on touch
+    const circleClick = () => {
+      if (!this.pause) {
+        this.score += 1
+        this.disableCircle(id)
+      }
+    }
+    graphics.on('mousedown', circleClick).on('touchstart', circleClick)
 
     return circle
   }
