@@ -207,11 +207,13 @@ class Gameplay {
 
     // Creating circles each 500ms
     this.circleInterval = setInterval(() => {
-      const circle = this.createCircle()
-      // Push each new circle to the state
-      this.items.push(circle)
-      // Append circle item itself
-      circlesContainer.addChild(circle.graphics)
+      if (!this.pause) {
+        const circle = this.createCircle()
+        // Push each new circle to the state
+        this.items.push(circle)
+        // Append circle item itself
+        circlesContainer.addChild(circle.graphics)
+      }
     }, 1000)
   }
 
